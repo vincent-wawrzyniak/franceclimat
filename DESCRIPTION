@@ -1,0 +1,14 @@
+Package: franceclimat
+Version: 0.0.0.9000
+Title: Franceclimat
+Description: Traitement et visualisation des données climatiques spatiales SIM produites par Météo France (modèle de simulation des schémas de surface Safran - Isba).
+Authors@R: person(given = "Vincent",
+       family = "Wawrzyniak",
+       role = c("aut", "cre"),
+       email = "vincent.wawrzyniak@gmail.com")
+License: MIT + file LICENSE
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.3
+Imports: 
+    magrittr
