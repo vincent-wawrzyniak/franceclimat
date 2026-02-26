@@ -1,0 +1,220 @@
+---
+title: "integration_sim2.Rmd for working package"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+# concatenation_sim2
+    
+```{r development-concatenation_sim2}
+# You can prepare the code of the concatenation_sim2() function here
+
+# Définir le chemin vers le dossier
+
+
+# Obtenir la liste des fichiers CSV dans le dossier
+fichiers_csv <- list.files(path = dossier, pattern = "\\.csv$", full.names = TRUE)
+
+# Lire chaque fichier
+
+library(duckdb)
+
+con <- dbConnect(duckdb())
+
+result <- dbGetQuery(con, "
+  SELECT *
+  FROM read_csv_auto('C:/workspace/sim/data_quotidiennes/*.csv')
+  WHERE REGION = 'AURA'
+")
+
+write.csv(result, "C:/workspace/sim/AURA_agrege.csv", row.names = FALSE)
+
+
+
+library(DBI)
+library(duckdb)
+
+library(DBI)
+library(duckdb)
+library(assertthat)
+
+input_dir = "C:/workspace/sim"
+output_file = "C:/workspace/sim/datasim2.csv"
+delim = ";"
+
+# Vérifications
+assert_that(dir.exists(input_dir), msg = "Le dossier d'entrée n'existe pas.")
+gz_files <- list.files(input_dir, pattern = "\\.csv\\.gz$", full.names = TRUE)
+assert_that(length(gz_files) > 0, msg = "Aucun fichier .csv.gz trouvé dans le dossier.")
+assert_that(is.character(output_file), msg = "output_file doit être un chemin valide.")
+  
+# Connexion DuckDB
+con <- dbConnect(duckdb())
+on.exit(dbDisconnect(con, shutdown = TRUE), add = TRUE)
+  
+# Normaliser les chemins pour Windows
+input_dir_norm <- normalizePath(input_dir, winslash = "/")
+output_file_norm <- normalizePath(output_file, winslash = "/")
+  
+# Construire la requête COPY
+  query <- sprintf(
+    "COPY (
+       SELECT *
+       FROM read_csv('%s/*.csv.gz', delim='%s', header=true)
+     )
+     TO '%s'
+     WITH (HEADER, DELIMITER '%s')",
+    input_dir_norm,
+    delim,
+    output_file_norm,
+    delim
+  )
+  
+  message("Exécution de la fusion via DuckDB...")
+  dbExecute(con, query)
+  message("Fichier créé : ", output_file)
+  
+  invisible(output_file)
+  
+  
+  
+
+
+```
+  
+```{r function-concatenation_sim2}
+#' Fusionne des fichiers CSV.gz en un seul fichier via DuckDB
+#'
+#' Cette fonction lit tous les fichiers compressés au format `.csv.gz`
+#' présents dans un dossier, les concatène, puis écrit le résultat
+#' dans un fichier de sortie (CSV ou Parquet). La lecture et l'écriture se font en streaming via DuckDB,
+#' ce qui permet de traiter de très gros volumes de données
+#' (plusieurs dizaines de Go) sans saturer la mémoire RAM.
+#'
+#' @param input_dir Character. Chemin vers le dossier contenant les fichiers `.csv.gz`.
+#' @param output_file Character. Chemin complet vers le fichier de sortie.
+#' @param delim Character. Séparateur des fichiers CSV. Par défaut `";"`.
+#' @param format Character. Format de sortie : `"parquet"` (par défaut) ou `"csv"`.
+#'
+#' @importFrom assertthat assert_that
+#' @importFrom DBI dbConnect dbExecute dbDisconnect
+#' @importFrom duckdb duckdb
+#'
+#' @return Character. Chemin du fichier généré (retourné invisiblement).
+#' @export
+#'
+#' @examples
+concatenation_sim2 <- function(input_dir,
+                               output_file,
+                               delim = ";",
+                               format = c("parquet", "csv")) {
+  
+  format <- match.arg(format)
+  
+  # Vérifications
+  assert_that(dir.exists(input_dir),
+              msg = "Le dossier d\u0027entr\u00E9e n\u0027existe pas.") # \u00E9 -> é / \u0027 -> '
+  
+  gz_files <- list.files(input_dir,
+                         pattern = "\\.csv\\.gz$",
+                         full.names = TRUE)
+  
+  assert_that(length(gz_files) > 0,
+              msg = "Aucun fichier .csv.gz trouv\u00E9e dans le dossier.")
+  
+  assert_that(is.character(output_file),
+              msg = "output_file doit \u00EAtre un chemin valide.") # \u00EA -> ê
+  
+  # Connexion DuckDB (temporaire en mémoire)
+  con <- dbConnect(duckdb())
+  on.exit(dbDisconnect(con, shutdown = TRUE), add = TRUE)
+  
+  # Normalisation des chemins (important sous Windows)
+  input_dir_norm <- normalizePath(input_dir, winslash = "/")
+  output_file_norm <- normalizePath(output_file,
+                                    winslash = "/",
+                                    mustWork = FALSE)
+  
+  message("Ex\u00E9ecution de la fusion via DuckDB...")
+  
+  if (format == "csv") {
+    
+    query <- sprintf(
+      "COPY (
+         SELECT *
+         FROM read_csv('%s/*.csv.gz', delim='%s', header=true)
+       )
+       TO '%s'
+       WITH (HEADER, DELIMITER '%s')",
+      input_dir_norm, delim,
+      output_file_norm, delim
+    )
+    
+  } else {
+    
+    query <- sprintf(
+      "COPY (
+         SELECT *
+         FROM read_csv('%s/*.csv.gz', delim='%s', header=true)
+       )
+       TO '%s'
+       (FORMAT PARQUET)",
+      input_dir_norm, delim,
+      output_file_norm
+    )
+    
+  }
+  
+  dbExecute(con, query)
+  
+  message("Fichier cr\u00E9e\u00E9e : ", output_file)
+  
+  invisible(output_file)
+}
+
+```
+  
+```{r example-concatenation_sim2}
+#' \dontrun{
+#' concatenation_sim2(
+#'   input_dir = "C:/workspace/sim/",
+#'   output_file = "C:/workspace/sim/ALL_sim2.parquet",
+#'   delim = ";",
+#'   format = "parquet"
+#' )
+#' }
+
+```
+  
+```{r tests-concatenation_sim2}
+test_that("concatenation_sim2 works", {
+  expect_true(inherits(concatenation_sim2, "function")) 
+})
+```
+  
+
+
+
+
+
+
+
+
+
+```{r development-inflate, eval=FALSE}
+# Keep eval=FALSE to avoid infinite loop in case you hit the knit button
+# Execute in the console directly
+fusen::inflate(flat_file = "dev/integration_sim2.Rmd", vignette_name = "Intégration des données Météo France SIM2")
+```
+
+
+# Inflate your package
+
+You're one inflate from paper to box.
+Build your package from this very Rmd using `fusen::inflate()`
+
+- Verify your `"DESCRIPTION"` file has been updated
+- Verify your function is in `"R/"` directory
+- Verify your test is in `"tests/testthat/"` directory
+- Verify this Rmd appears in `"vignettes/"` directory
