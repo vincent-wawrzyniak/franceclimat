@@ -12,7 +12,9 @@ Depends:
 Imports: 
     assertthat,
     DBI,
+    dplyr,
     duckdb,
+    lubridate,
     magrittr
 Suggests: 
     knitr,
