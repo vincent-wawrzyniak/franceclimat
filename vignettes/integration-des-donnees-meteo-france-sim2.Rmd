@@ -41,14 +41,6 @@ library(franceclimat)
   
 
 
-
-
-
-
-
-
-
-
 # Inflate your package
 
 You're one inflate from paper to box.

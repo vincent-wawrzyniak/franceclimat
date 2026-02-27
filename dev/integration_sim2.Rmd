@@ -194,14 +194,6 @@ test_that("concatenation_sim2 works", {
 ```
   
 
-
-
-
-
-
-
-
-
 ```{r development-inflate, eval=FALSE}
 # Keep eval=FALSE to avoid infinite loop in case you hit the knit button
 # Execute in the console directly
