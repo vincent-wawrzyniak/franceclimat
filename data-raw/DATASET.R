@@ -67,39 +67,11 @@ cat(
 )
 
 ##########################################################################################################################################################################
-#
+# Données quotidiennes : SIM - Dataset pédagogique faut format parquet ex_data_sim2
 
+library(arrow)
 
-
-
-##########################################################################################################################################################################
-# Données quotidiennes : SIM
-
-library(DBI)
-library(duckdb)
-
-con <- dbConnect(duckdb())
-
-# 4 points sur le secteur de Lyon
-
-ex_data_sim2 <- dbGetQuery(con, "
-  SELECT t.LAMBX, t.LAMBY, t.DATE, t.PRENEI, t.PRELIQ, t.T, t.TINF_H, t.TSUP_H
-  FROM read_parquet('C:/workspace/sim/ALL_sim2.parquet') t
-  INNER JOIN (
-    VALUES
-      (7880, 20890),
-      (7960, 20890),
-      (7880, 20810),
-      (7960, 20810)
-  ) AS pts(LAMBX, LAMBY)
-  ON t.LAMBX = pts.LAMBX
-  AND t.LAMBY = pts.LAMBY
-")
-
-dbDisconnect(con, shutdown = TRUE)
-
-# Ajout donnees dans le fichier data (format rda)
-usethis::use_data(ex_data_sim2, overwrite = TRUE)
+arrow::write_parquet(ex_data_sim2, "inst/ex_data_sim2.parquet")
 
 ##########################################################################################################################################################################
 #
