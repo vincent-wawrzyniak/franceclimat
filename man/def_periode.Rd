@@ -7,20 +7,24 @@
 def_periode(data, date_col = "DATE", periode = "saison")
 }
 \arguments{
-\item{data}{data.frame. Table avec les données qui doit contenir un colonne représentant la date au format année-mois-jour (AAAAMMJJ).}
+\item{data}{data.frame ou tbl_lazy (DuckDB, parquet via dbplyr). Table contenant les données.}
 
-\item{date_col}{Character. Nom de la colonne représentant la date.}
+\item{date_col}{Character. Nom de la colonne représentant la date (format AAAAMMJJ).}
 
-\item{periode}{Character. saison ou annee}
+\item{periode}{Character. Soit \code{"saison"} pour créer les saisons, soit \code{"annee"} pour créer simplement l'année.}
 }
 \value{
-tibble. Table initiale avec 2 colonnes en plus : periode et annee
+Même objet que \code{data} avec deux colonnes supplémentaires :
+\describe{
+\item{periode}{Période temporelle (Hiver, Printemps, Été, Automne ou Année)}
+\item{annee}{Année associée à la période}
+}
 }
 \description{
-À partir d'une table contenant une colonne de dates au format #' AAAAMMJJ (année-mois-jour), cette fonction ajoute deux colonnes :
+À partir d'une table contenant une colonne de dates au format AAAAMMJJ (année-mois-jour),
+cette fonction ajoute deux colonnes :
 \itemize{
-\item \code{periode} : période temporelle ("Hiver", "Printemps", "Été",
-"Automne" ou "Année")
+\item \code{periode} : période temporelle ("Hiver", "Printemps", "Été", "Automne" ou "Année")
 \item \code{annee} : année associée à la période
 }
 }
@@ -33,14 +37,39 @@ Lorsque \code{periode = "saison"}, les saisons météorologiques sont définies 
 \item Automne : septembre à novembre
 }
 
-L'année associée à l'hiver correspond à l'année de janvier/février. Ainsi, décembre 1960 est rattaché à l'hiver 1961.
+L'année associée à l'hiver correspond à l'année de janvier/février.  Ainsi, décembre 1960 est rattaché à l'hiver 1961.
 }
 \examples{
 
 
+######################################################
+# Exemple avec un data.table
+
 data("ex_data_sim2")
 
-resultat = def_periode(data = ex_data_sim2,
+resultat_data_table = def_periode(data = ex_data_sim2,
                        date_col = "DATE",
                        periode = "saison")
+
+######################################################
+# Exemple avec un parquet / tbl_lazy
+
+library(DBI)
+library(duckdb)
+library(dplyr)
+library(dbplyr)
+
+file <- system.file("ex_data_sim2.parquet", package = "franceclimat") # Chemin vers le parquet dans le package
+
+con <- dbConnect(duckdb::duckdb()) # Connexion DuckDB en mémoire
+
+tbl_lazy <- tbl(con, sql(sprintf("SELECT * FROM read_parquet('\%s')", file))) # Créer une table lazy directement depuis le parquet
+
+resultat_tbl_lazy <- tbl_lazy \%>\%
+  def_periode("DATE", "saison") \%>\%
+  collect()
+
+dbDisconnect(con, shutdown = TRUE)
+
+
 }

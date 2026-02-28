@@ -14,9 +14,9 @@ Imports:
     DBI,
     dplyr,
     duckdb,
-    lubridate,
     magrittr
 Suggests: 
+    dbplyr,
     knitr,
     rmarkdown,
     testthat

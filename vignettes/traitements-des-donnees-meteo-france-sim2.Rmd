@@ -28,11 +28,36 @@ library(franceclimat)
 
 ```{r examples-def_periode}
 
+######################################################
+# Exemple avec un data.table
+
 data("ex_data_sim2")
 
-resultat = def_periode(data = ex_data_sim2,
+resultat_data_table = def_periode(data = ex_data_sim2,
                        date_col = "DATE",
                        periode = "saison")
+
+######################################################
+# Exemple avec un parquet / tbl_lazy
+
+library(DBI)
+library(duckdb)
+library(dplyr)
+library(dbplyr)
+
+file <- system.file("ex_data_sim2.parquet", package = "franceclimat") # Chemin vers le parquet dans le package
+
+con <- dbConnect(duckdb::duckdb()) # Connexion DuckDB en mémoire
+
+tbl_lazy <- tbl(con, sql(sprintf("SELECT * FROM read_parquet('%s')", file))) # Créer une table lazy directement depuis le parquet
+
+resultat_tbl_lazy <- tbl_lazy %>%
+  def_periode("DATE", "saison") %>%
+  collect()
+
+dbDisconnect(con, shutdown = TRUE)
+
+
 ```
 
 

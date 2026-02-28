@@ -74,10 +74,10 @@ table = table %>% select(-data_ymd, -year, -month)
 ```{r function-def_periode}
 #' Définir une période temporelle (année ou saison)
 #'
-#' À partir d'une table contenant une colonne de dates au format #' AAAAMMJJ (année-mois-jour), cette fonction ajoute deux colonnes :
+#' À partir d'une table contenant une colonne de dates au format AAAAMMJJ (année-mois-jour),
+#' cette fonction ajoute deux colonnes :
 #' \itemize{
-#'   \item `periode` : période temporelle ("Hiver", "Printemps", "Été",
-#'   "Automne" ou "Année")
+#'   \item `periode` : période temporelle ("Hiver", "Printemps", "Été", "Automne" ou "Année")
 #'   \item `annee` : année associée à la période
 #' }
 #'
@@ -89,88 +89,155 @@ table = table %>% select(-data_ymd, -year, -month)
 #'   \item Automne : septembre à novembre
 #' }
 #'
-#' L'année associée à l'hiver correspond à l'année de janvier/février. Ainsi, décembre 1960 est rattaché à l'hiver 1961.
+#' L'année associée à l'hiver correspond à l'année de janvier/février.  Ainsi, décembre 1960 est rattaché à l'hiver 1961.
+#'
+#' @param data data.frame ou tbl_lazy (DuckDB, parquet via dbplyr). Table contenant les données.
+#' @param date_col Character. Nom de la colonne représentant la date (format AAAAMMJJ).
+#' @param periode Character. Soit `"saison"` pour créer les saisons, soit `"annee"` pour créer simplement l'année.
 #' 
-#' @param data data.frame. Table avec les données qui doit contenir un colonne représentant la date au format année-mois-jour (AAAAMMJJ).
-#' @param date_col Character. Nom de la colonne représentant la date.
-#' @param periode Character. saison ou annee.
-#'
-#' @importFrom assertthat assert_that
 #' @importFrom dplyr mutate case_when select
-#' @importFrom lubridate ymd month year
 #'
-#' @return tibble. Table initiale avec 2 colonnes en plus : periode et annee
-#'  
+#' @return Même objet que `data` avec deux colonnes supplémentaires :
+#' \describe{
+#'   \item{periode}{Période temporelle (Hiver, Printemps, Été, Automne ou Année)}
+#'   \item{annee}{Année associée à la période}
+#' }
+#'
 #' @export
 #'
 #' @examples
 #' 
 def_periode <- function(data, date_col = "DATE", periode = "saison") {
   
-  ######################################################################
-  # Vérifications
   
-  # Vérifier la periode
-  assert_that(periode %in% c("saison","annee"),
-              msg = "periode doit \u00EAtre saison ou annee.") # \u00EA -> ê
+  # -----------------------------
+  # Vérifications générales
+  # -----------------------------
   
-  # Vérifier que la colonne existe
-  assert_that(date_col %in% names(data),
-              msg = paste0("Colonne ", date_col, " non trouv\u00E9e dans le data frame"))
-
-  # Vérifier que les valeurs sont des entiers de 8 chiffres
-  dates_vec <- data[[date_col]]
-  assert_that(
-    all(grepl("^\\d{8}$", as.character(dates_vec))),
-    msg = paste0("Toutes les valeurs de la colonne ", date_col, " doivent \u00EAtre au format AAAAMMJJ (8 chiffres)")
-  )
+  # 1) Vérifier l'argument periode
+  if (!periode %in% c("saison", "annee")) {
+    stop("`periode` doit être 'saison' ou 'annee'.", call. = FALSE)
+  }
   
-  ######################################################################
-  # Year and month
+  # 2) Déterminer le type d'objet
+  is_df   <- inherits(data, "data.frame")
+  is_lazy <- inherits(data, "tbl_lazy")
   
-  table = ex_data_sim2 %>%
-    mutate(data_ymd = ymd(.data[[date_col]])) %>%
-    mutate(year = year(data_ymd),
-           month = month(data_ymd))
+  if (!is_df && !is_lazy) {
+    stop(
+      "`data` doit être un data.frame (ou tibble) ",
+      "ou un objet tbl_lazy (DuckDB/SQL).",
+      call. = FALSE
+    )
+  }
   
-  ######################################################################
-  # saison ou annee
+  # 3) Vérifier que la colonne existe
+  cols <- colnames(data)
   
-  # Saisons météo
-  if (periode == "saison"){
-    table = table %>%
-      mutate(periode =
-               case_when(month %in% c(12, 1, 2) ~ "Hiver",
-                         month %in% c(3, 4, 5) ~ "Printemps",
-                         month %in% c(6, 7, 8) ~ "Et\u00E9", # \u00E9 -> é
-                         month %in% c(9, 10, 11) ~ "Automne",
-                         .default = "Erreur")) %>%
-      mutate(annee =
-               case_when(periode == "Hiver" & month %in% c(1, 2) ~ year,
-                         periode == "Hiver" & month %in% c(12) ~ year + 1,
-                         .default = year)) 
+  if (!date_col %in% cols) {
+    stop(
+      "Colonne '",
+      date_col,
+      "' non trouvée dans `data`.\n",
+      "Colonnes disponibles : ",
+      paste(cols, collapse = ", "),
+      call. = FALSE
+    )
+  }
+  
+  # -----------------------------
+  # Vérifications avancées
+  # (uniquement si données en mémoire)
+  # -----------------------------
+  
+  if (is_df) {
+    dates_vec <- data[[date_col]]
     
-    # Année 
-    }else if (periode == "annee"){
-      table = table %>%
-        mutate(periode = "Ann\u00E9e",
-               annee = year)
-      }
+    if (!all(grepl("^\\d{8}$", as.character(dates_vec)))) {
+      stop(
+        "Toutes les valeurs de la colonne '",
+        date_col,
+        "' doivent être au format AAAAMMJJ (8 chiffres).",
+        call. = FALSE
+      )
+    }
+  }
 
-table = table %>% select(-data_ymd, -year, -month)
+  # -----------------------------
+  # Transformation compatible SQL
+  # -----------------------------
 
-return(table)
+  data <- data %>%
+    dplyr::mutate(
+      .date_chr = as.character(.data[[date_col]]), # . indique colonne temporaire
+      .year  = as.integer(substr(.date_chr, 1, 4)),
+      .month = as.integer(substr(.date_chr, 5, 6))
+    )
 
+  if (periode == "saison") {
+
+    data <- data %>%
+      dplyr::mutate(
+        periode = dplyr::case_when(
+          .month %in% c(12,1,2) ~ "Hiver",
+          .month %in% 3:5       ~ "Printemps",
+          .month %in% 6:8       ~ "Ete",
+          .month %in% 9:11      ~ "Automne"
+        ),
+        annee = dplyr::case_when(
+          .month == 12 ~ .year + 1,
+          TRUE ~ .year
+        )
+      )
+
+  } else {
+
+    data <- data %>%
+      dplyr::mutate(
+        periode = "Annee",
+        annee = .year
+      )
+  }
+
+  result = data %>%
+    dplyr::select(-.date_chr, -.year, -.month)
+  
+  return(result)
 }
 ```
 
 ```{r examples-def_periode}
 
+######################################################
+# Exemple avec un data.table
+
 data("ex_data_sim2")
 
-resultat = def_periode(data = ex_data_sim2,
+resultat_data_table = def_periode(data = ex_data_sim2,
                        date_col = "DATE",
                        periode = "saison")
+
+######################################################
+# Exemple avec un parquet / tbl_lazy
+
+library(DBI)
+library(duckdb)
+library(dplyr)
+library(dbplyr)
+
+file <- system.file("ex_data_sim2.parquet", package = "franceclimat") # Chemin vers le parquet dans le package
+
+con <- dbConnect(duckdb::duckdb()) # Connexion DuckDB en mémoire
+
+tbl_lazy <- tbl(con, sql(sprintf("SELECT * FROM read_parquet('%s')", file))) # Créer une table lazy directement depuis le parquet
+
+resultat_tbl_lazy <- tbl_lazy %>%
+  def_periode("DATE", "saison") %>%
+  collect()
+
+dbDisconnect(con, shutdown = TRUE)
+
+
 ```
 
 ```{r tests-def_periode}
