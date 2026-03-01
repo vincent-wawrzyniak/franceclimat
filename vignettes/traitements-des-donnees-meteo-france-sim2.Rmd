@@ -45,11 +45,14 @@ library(duckdb)
 library(dplyr)
 library(dbplyr)
 
-file <- system.file("ex_data_sim2.parquet", package = "franceclimat") # Chemin vers le parquet dans le package
+# Chemin vers le parquet dans le package
+file <- system.file("ex_data_sim2.parquet", package = "franceclimat") 
 
-con <- dbConnect(duckdb::duckdb()) # Connexion DuckDB en mémoire
+# Connexion DuckDB en mémoire
+con <- dbConnect(duckdb::duckdb()) 
 
-tbl_lazy <- tbl(con, sql(sprintf("SELECT * FROM read_parquet('%s')", file))) # Créer une table lazy directement depuis le parquet
+# Création d'une table lazy directement depuis le parquet
+tbl_lazy <- tbl(con, sql(sprintf("SELECT * FROM read_parquet('%s')", file))) 
 
 resultat_tbl_lazy <- tbl_lazy %>%
   def_periode("DATE", "saison") %>%

@@ -5,7 +5,7 @@
 #' À partir d'une table contenant une colonne de dates au format AAAAMMJJ (année-mois-jour),
 #' cette fonction ajoute deux colonnes :
 #' \itemize{
-#'   \item `periode` : période temporelle ("Hiver", "Printemps", "Été", "Automne" ou "Année")
+#'   \item `periode` : période temporelle ("Hiver", "Printemps", "Ete", "Automne" ou "Annee")
 #'   \item `annee` : année associée à la période
 #' }
 #'
@@ -27,7 +27,7 @@
 #'
 #' @return Même objet que `data` avec deux colonnes supplémentaires :
 #' \describe{
-#'   \item{periode}{Période temporelle (Hiver, Printemps, Été, Automne ou Année)}
+#'   \item{periode}{Période temporelle (Hiver, Printemps, Ete, Automne ou Annee)}
 #'   \item{annee}{Année associée à la période}
 #' }
 #'
@@ -53,11 +53,14 @@
 #' library(dplyr)
 #' library(dbplyr)
 #'
-#' file <- system.file("ex_data_sim2.parquet", package = "franceclimat") # Chemin vers le parquet dans le package
+#' # Chemin vers le parquet dans le package
+#' file <- system.file("ex_data_sim2.parquet", package = "franceclimat") 
 #'
-#' con <- dbConnect(duckdb::duckdb()) # Connexion DuckDB en mémoire
+#' # Connexion DuckDB en mémoire
+#' con <- dbConnect(duckdb::duckdb()) 
 #'
-#' tbl_lazy <- tbl(con, sql(sprintf("SELECT * FROM read_parquet('%s')", file))) # Créer une table lazy directement depuis le parquet
+#' # Création d'une table lazy directement depuis le parquet
+#' tbl_lazy <- tbl(con, sql(sprintf("SELECT * FROM read_parquet('%s')", file))) 
 #'
 #' resultat_tbl_lazy <- tbl_lazy %>%
 #'   def_periode("DATE", "saison") %>%
@@ -75,7 +78,7 @@ def_periode <- function(data, date_col = "DATE", periode = "saison") {
   
   # 1) Vérifier l'argument periode
   if (!periode %in% c("saison", "annee")) {
-    stop("`periode` doit être 'saison' ou 'annee'.", call. = FALSE)
+    stop("`periode` doit \u00EAtre 'saison' ou 'annee'.", call. = FALSE) # \u00EA -> ê
   }
   
   # 2) Déterminer le type d'objet
@@ -84,7 +87,7 @@ def_periode <- function(data, date_col = "DATE", periode = "saison") {
   
   if (!is_df && !is_lazy) {
     stop(
-      "`data` doit être un data.frame (ou tibble) ",
+      "`data` doit \u00EAtre un data.frame (ou tibble) ",
       "ou un objet tbl_lazy (DuckDB/SQL).",
       call. = FALSE
     )
@@ -97,7 +100,7 @@ def_periode <- function(data, date_col = "DATE", periode = "saison") {
     stop(
       "Colonne '",
       date_col,
-      "' non trouvée dans `data`.\n",
+      "' non trouv\u00E9e dans `data`.\n", # \u00E9 -> é
       "Colonnes disponibles : ",
       paste(cols, collapse = ", "),
       call. = FALSE
@@ -116,7 +119,7 @@ def_periode <- function(data, date_col = "DATE", periode = "saison") {
       stop(
         "Toutes les valeurs de la colonne '",
         date_col,
-        "' doivent être au format AAAAMMJJ (8 chiffres).",
+        "' doivent \u00EAtre au format AAAAMMJJ (8 chiffres).",
         call. = FALSE
       )
     }

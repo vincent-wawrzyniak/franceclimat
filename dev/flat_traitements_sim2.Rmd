@@ -66,9 +66,6 @@ table = table %>%
 
 table = table %>% select(-data_ymd, -year, -month)
 
-
-
-
 ```
 
 ```{r function-def_periode}
@@ -77,7 +74,7 @@ table = table %>% select(-data_ymd, -year, -month)
 #' À partir d'une table contenant une colonne de dates au format AAAAMMJJ (année-mois-jour),
 #' cette fonction ajoute deux colonnes :
 #' \itemize{
-#'   \item `periode` : période temporelle ("Hiver", "Printemps", "Été", "Automne" ou "Année")
+#'   \item `periode` : période temporelle ("Hiver", "Printemps", "Ete", "Automne" ou "Annee")
 #'   \item `annee` : année associée à la période
 #' }
 #'
@@ -99,7 +96,7 @@ table = table %>% select(-data_ymd, -year, -month)
 #'
 #' @return Même objet que `data` avec deux colonnes supplémentaires :
 #' \describe{
-#'   \item{periode}{Période temporelle (Hiver, Printemps, Été, Automne ou Année)}
+#'   \item{periode}{Période temporelle (Hiver, Printemps, Ete, Automne ou Annee)}
 #'   \item{annee}{Année associée à la période}
 #' }
 #'
@@ -116,7 +113,7 @@ def_periode <- function(data, date_col = "DATE", periode = "saison") {
   
   # 1) Vérifier l'argument periode
   if (!periode %in% c("saison", "annee")) {
-    stop("`periode` doit être 'saison' ou 'annee'.", call. = FALSE)
+    stop("`periode` doit \u00EAtre 'saison' ou 'annee'.", call. = FALSE) # \u00EA -> ê
   }
   
   # 2) Déterminer le type d'objet
@@ -125,7 +122,7 @@ def_periode <- function(data, date_col = "DATE", periode = "saison") {
   
   if (!is_df && !is_lazy) {
     stop(
-      "`data` doit être un data.frame (ou tibble) ",
+      "`data` doit \u00EAtre un data.frame (ou tibble) ",
       "ou un objet tbl_lazy (DuckDB/SQL).",
       call. = FALSE
     )
@@ -138,7 +135,7 @@ def_periode <- function(data, date_col = "DATE", periode = "saison") {
     stop(
       "Colonne '",
       date_col,
-      "' non trouvée dans `data`.\n",
+      "' non trouv\u00E9e dans `data`.\n", # \u00E9 -> é
       "Colonnes disponibles : ",
       paste(cols, collapse = ", "),
       call. = FALSE
@@ -157,7 +154,7 @@ def_periode <- function(data, date_col = "DATE", periode = "saison") {
       stop(
         "Toutes les valeurs de la colonne '",
         date_col,
-        "' doivent être au format AAAAMMJJ (8 chiffres).",
+        "' doivent \u00EAtre au format AAAAMMJJ (8 chiffres).",
         call. = FALSE
       )
     }
@@ -225,11 +222,14 @@ library(duckdb)
 library(dplyr)
 library(dbplyr)
 
-file <- system.file("ex_data_sim2.parquet", package = "franceclimat") # Chemin vers le parquet dans le package
+# Chemin vers le parquet dans le package
+file <- system.file("ex_data_sim2.parquet", package = "franceclimat") 
 
-con <- dbConnect(duckdb::duckdb()) # Connexion DuckDB en mémoire
+# Connexion DuckDB en mémoire
+con <- dbConnect(duckdb::duckdb()) 
 
-tbl_lazy <- tbl(con, sql(sprintf("SELECT * FROM read_parquet('%s')", file))) # Créer une table lazy directement depuis le parquet
+# Création d'une table lazy directement depuis le parquet
+tbl_lazy <- tbl(con, sql(sprintf("SELECT * FROM read_parquet('%s')", file))) 
 
 resultat_tbl_lazy <- tbl_lazy %>%
   def_periode("DATE", "saison") %>%
@@ -241,9 +241,114 @@ dbDisconnect(con, shutdown = TRUE)
 ```
 
 ```{r tests-def_periode}
-test_that("def_periode works", {
-  expect_true(inherits(def_periode, "function"))
+
+test_that("def_periode works correctly with known dates (saison)", {
+  # Jeu de données minimal contrôlé
+  df <- data.frame(DATE = c(
+    19601215, # décembre -> Hiver 1961
+    19600110, # janvier -> Hiver 1960
+    19600410, # avril -> Printemps 1960
+    19600720, # juillet -> Ete 1960
+    19601005  # octobre -> Automne 1960
+  ))
+  
+  res <- def_periode(df, date_col = "DATE", periode = "saison")
+  
+  # Vérification des saisons
+  expect_equal(res$periode,
+               c("Hiver", "Hiver", "Printemps", "Ete", "Automne"))
+  
+  # Vérification des années
+  expect_equal(res$annee, c(1961, 1960, 1960, 1960, 1960))
 })
+
+test_that("def_periode works correctly with known dates (annee)", {
+
+  df <- data.frame(
+    DATE = c(19601215, 19600110)
+  )
+
+  res <- def_periode(df, date_col = "DATE", periode = "annee")
+
+  expect_true(all(res$periode == "Annee"))
+  expect_equal(res$annee, c(1960, 1960))
+})
+
+library(testthat)
+library(DBI)
+library(duckdb)
+library(dplyr)
+
+test_that("def_periode works with tbl_lazy (DuckDB)", {
+
+  # Connexion DuckDB en mémoire
+  con <- dbConnect(duckdb::duckdb(), dbdir = ":memory:")
+
+  # Créer un petit jeu de données
+  df <- data.frame(
+    DATE = c(19601215, 19600110, 19600410, 19600720, 19601005),
+    T = c(1,2,3,4,5)
+  )
+
+  # Copier dans DuckDB
+  dbWriteTable(con, "tbl_test", df)
+
+  # Créer une table lazy
+  tbl_lazy_test <- tbl(con, "tbl_test")
+
+  # Appliquer la fonction
+  res <- tbl_lazy_test %>%
+    def_periode("DATE", "saison") %>%
+    collect()
+
+  # Vérifier les saisons
+  expect_equal(res$periode, c("Hiver", "Hiver", "Printemps", "Ete", "Automne"))
+
+  # Vérifier les années
+  expect_equal(res$annee, c(1961, 1960, 1960, 1960, 1960))
+
+  # Fermer la connexion
+  dbDisconnect(con, shutdown = TRUE)
+})
+
+test_that("def_periode doesnt work", {
+
+  # Jeu minimal valide
+  df <- data.frame(
+    DATE = c(19601215, 19600110),
+    X = c(1, 2)
+  )
+
+  # Colonne inexistante
+  expect_error(
+    def_periode(df, date_col = "erreur", periode = "saison"),
+    "non trouvée"
+  )
+
+  # Mauvais format AAAAMMJJ
+  df_bad_format <- data.frame(
+    DATE = c("1960-12-15", "1960-01-10")
+  )
+
+  expect_error(
+    def_periode(df_bad_format, date_col = "DATE", periode = "saison"),
+    "AAAAMMJJ"
+  )
+
+  # Mauvais paramètre periode
+  expect_error(
+    def_periode(df, date_col = "DATE", periode = "erreur"),
+    "saison"
+  )
+
+  # Mauvais type de data
+  expect_error(
+    def_periode("ex_data_sim2", date_col = "DATE", periode = "saison"),
+    "data.frame"
+  )
+})  
+  
+  
 ```
 
 

@@ -16,7 +16,7 @@ def_periode(data, date_col = "DATE", periode = "saison")
 \value{
 Même objet que \code{data} avec deux colonnes supplémentaires :
 \describe{
-\item{periode}{Période temporelle (Hiver, Printemps, Été, Automne ou Année)}
+\item{periode}{Période temporelle (Hiver, Printemps, Ete, Automne ou Annee)}
 \item{annee}{Année associée à la période}
 }
 }
@@ -24,7 +24,7 @@ Même objet que \code{data} avec deux colonnes supplémentaires :
 À partir d'une table contenant une colonne de dates au format AAAAMMJJ (année-mois-jour),
 cette fonction ajoute deux colonnes :
 \itemize{
-\item \code{periode} : période temporelle ("Hiver", "Printemps", "Été", "Automne" ou "Année")
+\item \code{periode} : période temporelle ("Hiver", "Printemps", "Ete", "Automne" ou "Annee")
 \item \code{annee} : année associée à la période
 }
 }
@@ -59,11 +59,14 @@ library(duckdb)
 library(dplyr)
 library(dbplyr)
 
-file <- system.file("ex_data_sim2.parquet", package = "franceclimat") # Chemin vers le parquet dans le package
+# Chemin vers le parquet dans le package
+file <- system.file("ex_data_sim2.parquet", package = "franceclimat") 
 
-con <- dbConnect(duckdb::duckdb()) # Connexion DuckDB en mémoire
+# Connexion DuckDB en mémoire
+con <- dbConnect(duckdb::duckdb()) 
 
-tbl_lazy <- tbl(con, sql(sprintf("SELECT * FROM read_parquet('\%s')", file))) # Créer une table lazy directement depuis le parquet
+# Création d'une table lazy directement depuis le parquet
+tbl_lazy <- tbl(con, sql(sprintf("SELECT * FROM read_parquet('\%s')", file))) 
 
 resultat_tbl_lazy <- tbl_lazy \%>\%
   def_periode("DATE", "saison") \%>\%
