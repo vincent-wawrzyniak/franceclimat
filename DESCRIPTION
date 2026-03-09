@@ -16,10 +16,12 @@ Imports:
     duckdb,
     magrittr
 Suggests: 
+    arrow,
     dbplyr,
     knitr,
     rmarkdown,
-    testthat
+    testthat,
+    tibble
 VignetteBuilder: 
     knitr
 Config/fusen/version: 0.7.2

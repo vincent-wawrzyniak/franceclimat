@@ -15,59 +15,11 @@ pkgload::load_all(export_all = FALSE)
 ```
 
 # def_periode
-
+    
 ```{r development-def_periode}
-# Prepare the code of your function here
-library(dplyr)
-library(lubridate)
-
-data("ex_data_sim2")
-ex_data_sim2
-
-periode = "saison"
-periode = "annee"
-
-# Year and month
-table = ex_data_sim2 %>%
-  mutate(data_ymd = ymd(DATE)) %>%
-  mutate(year = year(data_ymd),
-         month = month(data_ymd))
-
-if (periode == "saison"){
-  # Saisons météo
-table = table %>%
-    mutate(
-      periode =
-        case_when(
-          month %in% c(12, 1, 2) ~ "Hiver",
-          month %in% c(3, 4, 5) ~ "Printemps",
-          month %in% c(6, 7, 8) ~ "Et\u00E9", # \u00E9 -> é
-          month %in% c(9, 10, 11) ~ "Automne",
-          .default = "Erreur"
-        )
-    ) %>%
-    mutate(
-      annee =
-        case_when(
-          periode == "Hiver" & month %in% c(1, 2) ~ year,
-          periode == "Hiver" & month %in% c(12) ~ year + 1,
-          .default = year
-        )
-    ) 
-
-}else if (periode == "annee"){
-
-# Années
-table = table %>%
-  mutate(periode = "Ann\u00E9e",
-         annee = year)
-
-}
-
-table = table %>% select(-data_ymd, -year, -month)
-
+# You can prepare the code of the def_periode() function here
 ```
-
+  
 ```{r function-def_periode}
 #' Définir une période temporelle (année ou saison)
 #'
@@ -88,7 +40,7 @@ table = table %>% select(-data_ymd, -year, -month)
 #'
 #' L'année associée à l'hiver correspond à l'année de janvier/février.  Ainsi, décembre 1960 est rattaché à l'hiver 1961.
 #'
-#' @param data data.frame ou tbl_lazy (DuckDB, parquet via dbplyr). Table contenant les données.
+#' @param data data.frame, tbl_lazy (DuckDB) ou Dataset (Dataset Arrow). Table contenant les données.
 #' @param date_col Character. Nom de la colonne représentant la date (format AAAAMMJJ).
 #' @param periode Character. Soit `"saison"` pour créer les saisons, soit `"annee"` pour créer simplement l'année.
 #' 
@@ -106,67 +58,40 @@ table = table %>% select(-data_ymd, -year, -month)
 #' 
 def_periode <- function(data, date_col = "DATE", periode = "saison") {
   
-  
   # -----------------------------
-  # Vérifications générales
+  # Vérifications
   # -----------------------------
-  
-  # 1) Vérifier l'argument periode
+
   if (!periode %in% c("saison", "annee")) {
-    stop("`periode` doit \u00EAtre 'saison' ou 'annee'.", call. = FALSE) # \u00EA -> ê
+    stop("`periode` doit etre 'saison' ou 'annee'.", call. = FALSE)
   }
   
-  # 2) Déterminer le type d'objet
-  is_df   <- inherits(data, "data.frame")
-  is_lazy <- inherits(data, "tbl_lazy")
   
-  if (!is_df && !is_lazy) {
-    stop(
-      "`data` doit \u00EAtre un data.frame (ou tibble) ",
-      "ou un objet tbl_lazy (DuckDB/SQL).",
-      call. = FALSE
-    )
+  if (!inherits(data, c("data.frame", "tbl_lazy", "Dataset"))) {
+    stop("`data` doit etre un data.frame, un tbl_lazy ou un Dataset Arrow.",
+         call. = FALSE)
   }
   
-  # 3) Vérifier que la colonne existe
-  cols <- colnames(data)
-  
-  if (!date_col %in% cols) {
-    stop(
-      "Colonne '",
-      date_col,
-      "' non trouv\u00E9e dans `data`.\n", # \u00E9 -> é
-      "Colonnes disponibles : ",
-      paste(cols, collapse = ", "),
-      call. = FALSE
-    )
+  if (!date_col %in% colnames(data)) {
+    stop("Colonne '", date_col, "' non trouvee.", call. = FALSE)
   }
   
-  # -----------------------------
-  # Vérifications avancées
-  # (uniquement si données en mémoire)
-  # -----------------------------
-  
-  if (is_df) {
-    dates_vec <- data[[date_col]]
-    
-    if (!all(grepl("^\\d{8}$", as.character(dates_vec)))) {
-      stop(
-        "Toutes les valeurs de la colonne '",
-        date_col,
-        "' doivent \u00EAtre au format AAAAMMJJ (8 chiffres).",
-        call. = FALSE
-      )
+  # Vérification format UNIQUEMENT si data.frame
+  if (inherits(data, "data.frame")) {
+    if (!is.character(data[[date_col]]) &&
+        !is.numeric(data[[date_col]])) {
+      stop("`date_col` doit etre caractere ou numerique AAAAMMJJ.",
+           call. = FALSE)
     }
   }
-
+  
   # -----------------------------
-  # Transformation compatible SQL
+  # Traitements
   # -----------------------------
-
+  
   data <- data %>%
     dplyr::mutate(
-      .date_chr = as.character(.data[[date_col]]), # . indique colonne temporaire
+      .date_chr = as.character(.data[[date_col]]),
       .year  = as.integer(substr(.date_chr, 1, 4)),
       .month = as.integer(substr(.date_chr, 5, 6))
     )
@@ -176,13 +101,13 @@ def_periode <- function(data, date_col = "DATE", periode = "saison") {
     data <- data %>%
       dplyr::mutate(
         periode = dplyr::case_when(
-          .month %in% c(12,1,2) ~ "Hiver",
-          .month %in% 3:5       ~ "Printemps",
-          .month %in% 6:8       ~ "Ete",
-          .month %in% 9:11      ~ "Automne"
+          .month %in% c(12, 1, 2) ~ "Hiver",
+          .month %in% 3:5         ~ "Printemps",
+          .month %in% 6:8         ~ "Ete",
+          .month %in% 9:11        ~ "Automne"
         ),
         annee = dplyr::case_when(
-          .month == 12 ~ .year + 1,
+          .month == 12 ~ .year + 1L,
           TRUE ~ .year
         )
       )
@@ -201,49 +126,69 @@ def_periode <- function(data, date_col = "DATE", periode = "saison") {
   
   return(result)
 }
-```
 
-```{r examples-def_periode}
+```
+  
+```{r example-def_periode}
+
+library(dplyr)
 
 ######################################################
-# Exemple avec un data.table
+# Exemple avec data.frame
 
 data("ex_data_sim2")
 
-resultat_data_table = def_periode(data = ex_data_sim2,
-                       date_col = "DATE",
-                       periode = "saison")
+resultat_df <- def_periode(
+  data = ex_data_sim2,
+  date_col = "DATE",
+  periode = "saison"
+)
 
 ######################################################
-# Exemple avec un parquet / tbl_lazy
+# Exemple avec DuckDB / parquet
 
-library(DBI)
-library(duckdb)
-library(dplyr)
-library(dbplyr)
+if (requireNamespace("duckdb", quietly = TRUE)) {
 
-# Chemin vers le parquet dans le package
-file <- system.file("ex_data_sim2.parquet", package = "franceclimat") 
+  library(DBI)
+  
+  file <- system.file("ex_data_sim2.parquet", package = "franceclimat")
 
-# Connexion DuckDB en mémoire
-con <- dbConnect(duckdb::duckdb()) 
+  con <- DBI::dbConnect(duckdb::duckdb())
 
-# Création d'une table lazy directement depuis le parquet
-tbl_lazy <- tbl(con, sql(sprintf("SELECT * FROM read_parquet('%s')", file))) 
+  tbl_lazy <- dplyr::tbl(
+    con,
+    dbplyr::sql(sprintf("SELECT * FROM read_parquet('%s')", file))
+  )
 
-resultat_tbl_lazy <- tbl_lazy %>%
-  def_periode("DATE", "saison") %>%
-  collect()
+  resultat_tbl_lazy <- tbl_lazy %>%
+    def_periode("DATE", "saison") %>%
+    collect()
 
-dbDisconnect(con, shutdown = TRUE)
+  DBI::dbDisconnect(con, shutdown = TRUE)
+}
 
+######################################################
+# Exemple avec Arrow
+
+if (requireNamespace("arrow", quietly = TRUE)) {
+
+  library(arrow)
+  
+  
+  file <- system.file("ex_data_sim2.parquet", package = "franceclimat")
+
+  ds <- arrow::open_dataset(file)
+
+  resultat_arrow <- ds %>%
+    def_periode("DATE", "saison") %>%
+    collect()
+}
 
 ```
-
+  
 ```{r tests-def_periode}
+test_that("def_periode works correctly with data.frame (saison)", {
 
-test_that("def_periode works correctly with known dates (saison)", {
-  # Jeu de données minimal contrôlé
   df <- data.frame(DATE = c(
     19601215, # décembre -> Hiver 1961
     19600110, # janvier -> Hiver 1960
@@ -251,22 +196,23 @@ test_that("def_periode works correctly with known dates (saison)", {
     19600720, # juillet -> Ete 1960
     19601005  # octobre -> Automne 1960
   ))
-  
+
   res <- def_periode(df, date_col = "DATE", periode = "saison")
-  
-  # Vérification des saisons
-  expect_equal(res$periode,
-               c("Hiver", "Hiver", "Printemps", "Ete", "Automne"))
-  
-  # Vérification des années
-  expect_equal(res$annee, c(1961, 1960, 1960, 1960, 1960))
+
+  expect_equal(
+    res$periode,
+    c("Hiver", "Hiver", "Printemps", "Ete", "Automne")
+  )
+
+  expect_equal(
+    res$annee,
+    c(1961, 1960, 1960, 1960, 1960)
+  )
 })
 
-test_that("def_periode works correctly with known dates (annee)", {
+test_that("def_periode works correctly with data.frame (annee)", {
 
-  df <- data.frame(
-    DATE = c(19601215, 19600110)
-  )
+  df <- data.frame(DATE = c(19601215, 19600110))
 
   res <- def_periode(df, date_col = "DATE", periode = "annee")
 
@@ -274,83 +220,435 @@ test_that("def_periode works correctly with known dates (annee)", {
   expect_equal(res$annee, c(1960, 1960))
 })
 
-library(testthat)
-library(DBI)
-library(duckdb)
-library(dplyr)
+test_that("def_periode works with DuckDB tbl_lazy", {
 
-test_that("def_periode works with tbl_lazy (DuckDB)", {
+  skip_if_not_installed("duckdb")
+  skip_if_not_installed("DBI")
 
-  # Connexion DuckDB en mémoire
+  library(DBI)
+  library(dplyr)
+
   con <- dbConnect(duckdb::duckdb(), dbdir = ":memory:")
 
-  # Créer un petit jeu de données
   df <- data.frame(
     DATE = c(19601215, 19600110, 19600410, 19600720, 19601005),
-    T = c(1,2,3,4,5)
+    T = 1:5
   )
 
-  # Copier dans DuckDB
   dbWriteTable(con, "tbl_test", df)
 
-  # Créer une table lazy
   tbl_lazy_test <- tbl(con, "tbl_test")
 
-  # Appliquer la fonction
   res <- tbl_lazy_test %>%
     def_periode("DATE", "saison") %>%
     collect()
 
-  # Vérifier les saisons
-  expect_equal(res$periode, c("Hiver", "Hiver", "Printemps", "Ete", "Automne"))
+  expect_equal(
+    res$periode,
+    c("Hiver", "Hiver", "Printemps", "Ete", "Automne")
+  )
 
-  # Vérifier les années
-  expect_equal(res$annee, c(1961, 1960, 1960, 1960, 1960))
+  expect_equal(
+    res$annee,
+    c(1961, 1960, 1960, 1960, 1960)
+  )
 
-  # Fermer la connexion
   dbDisconnect(con, shutdown = TRUE)
 })
 
-test_that("def_periode doesnt work", {
+test_that("def_periode works with Arrow Dataset", {
 
-  # Jeu minimal valide
+  skip_if_not_installed("arrow")
+
+  library(arrow)
+  library(dplyr)
+
   df <- data.frame(
-    DATE = c(19601215, 19600110),
-    X = c(1, 2)
+    DATE = c(19601215, 19600110, 19600410, 19600720, 19601005),
+    T = 1:5
   )
+
+  tmp_dir <- tempfile()
+  dir.create(tmp_dir)
+
+  write_dataset(df, tmp_dir, format = "parquet")
+
+  ds <- open_dataset(tmp_dir)
+
+  res <- ds %>%
+    def_periode("DATE", "saison") %>%
+    collect()
+
+  expect_equal(
+    res$periode,
+    c("Hiver", "Hiver", "Printemps", "Ete", "Automne")
+  )
+
+  expect_equal(
+    res$annee,
+    c(1961, 1960, 1960, 1960, 1960)
+  )
+})
+
+test_that("def_periode errors correctly", {
+
+  df <- data.frame(DATE = c(19601215, 19600110))
 
   # Colonne inexistante
   expect_error(
-    def_periode(df, date_col = "erreur", periode = "saison"),
-    "non trouvée"
-  )
-
-  # Mauvais format AAAAMMJJ
-  df_bad_format <- data.frame(
-    DATE = c("1960-12-15", "1960-01-10")
-  )
-
-  expect_error(
-    def_periode(df_bad_format, date_col = "DATE", periode = "saison"),
-    "AAAAMMJJ"
+    def_periode(df, date_col = "BAD", periode = "saison"),
+    "Colonne 'BAD' non trouvee."
   )
 
   # Mauvais paramètre periode
   expect_error(
     def_periode(df, date_col = "DATE", periode = "erreur"),
-    "saison"
+    "`periode` doit etre 'saison' ou 'annee'"
   )
 
-  # Mauvais type de data
+  # Mauvais type d'objet
   expect_error(
-    def_periode("ex_data_sim2", date_col = "DATE", periode = "saison"),
-    "data.frame"
+    def_periode("not_a_table", date_col = "DATE", periode = "saison"),
+    "`data` doit etre un data.frame, un tbl_lazy ou un Dataset Arrow."
   )
-})  
-  
-  
-```
+})
 
+```
+  
+  
+# calcul_periode
+    
+```{r development-calcul_periode}
+# You can prepare the code of the calcul_periode() function here
+
+library(dplyr)
+
+data("ex_data_sim2")
+
+resultat_data_table = def_periode(data = ex_data_sim2,
+                       date_col = "DATE",
+                       periode = "saison")
+
+result = resultat_data_table %>%
+  group_by(annee, periode, LAMBX, LAMBY) %>%
+  summarise(
+    T_moy = mean(T, na.rm = TRUE),
+    .groups = "drop"
+  ) 
+
+
+
+
+
+
+```
+  
+```{r function-calcul_periode}
+#' Calculer une statistique par période
+#'
+#' Cette fonction regroupe les données selon les variables spécifiées dans `group_vars` et applique une fonction d’agrégation sur une colonne donnée.
+#' Compatible avec `data.frame` / `tibble`, `arrow::Dataset` et `duckdb` (`tbl_lazy`)
+#' Pour garantir la compatibilité avec Arrow et DuckDB, la fonction d’agrégation est fournie sous forme de chaîne de caractères (`fun_name`) et doit correspondre à une fonction d’agrégation standard supportée par ces moteurs.
+#'
+#' @param data data.frame, tibble, `arrow::Dataset` ou `tbl_lazy`. Table contenant les données à agréger.
+#' @param var Character. Nom de la colonne numérique sur laquelle appliquer la fonction d’agrégation.
+#' @param group_vars Character vector. Noms des colonnes servant à regrouper les données (par exemple `c("annee", "periode")`).
+#' @param fun_name Character. Nom de la fonction d’agrégation à appliquer. Doit être l’une des valeurs suivantes : `"mean"`, `"sum"`, `"min"`, `"max"`.
+#' @param nom Character. Nom de la colonne résultat créée après agrégation.
+#' 
+#' @importFrom dplyr group_by summarise across rename all_of
+#'
+#' @return tibble avec les colonnes de regroupement et la colonne agrégée `nom`.
+#' 
+#' @export
+#'
+#' @examples
+#' 
+calcul_periode <- function(data,
+                           var = "col_calcul",
+                           group_vars = c("annee","periode"),
+                           fun_name = c("mean","sum","min","max"),
+                           nom = "col_resultat") {
+  
+  # Vérifications
+  if (!fun_name %in% c("mean","sum","min","max")) {
+    stop("`fun_name` doit etre 'mean','sum','min' ou 'max'",
+         call. = FALSE)
+  }
+  
+  if (!is.character(nom) || length(nom) != 1) stop("`nom` doit etre un string de longueur 1.")
+  if (!is.character(var) || length(var) != 1) stop("`var` doit etre un string correspondant au nom d'une colonne.")
+  if (!is.character(group_vars)) stop("`group_vars` doit etre un vecteur de noms de colonnes (strings).")
+  
+  # Création colonne valeur qui est celle qu'on souhaite agréger
+  # Pas fait de façon dynamique car non transposable avec arrow et duckbd
+  
+  data <- data %>%
+    rename(col_calcul = var)
+  
+  # Calculs avec la fonction choisie
+  # A nouveau, pas fait de façon dynamique car non transposable avec arrow et duckbd
+
+  if (fun_name == "mean") {
+    result <- data %>%
+      group_by(across(all_of(group_vars))) %>%
+      summarise(valeur = mean(col_calcul, na.rm = TRUE), .groups = "drop")
+
+  } else if (fun_name == "sum") {
+    result <- data %>%
+      group_by(across(all_of(group_vars))) %>%
+      summarise(valeur = sum(col_calcul, na.rm = TRUE), .groups = "drop")
+
+  } else if (fun_name == "min") {
+    result <- data %>%
+      group_by(across(all_of(group_vars))) %>%
+      summarise(valeur = min(col_calcul, na.rm = TRUE), .groups = "drop")
+
+  } else if (fun_name == "max") {
+    result <- data %>%
+      group_by(across(all_of(group_vars))) %>%
+      summarise(valeur = max(col_calcul, na.rm = TRUE), .groups = "drop")
+  }
+
+  # On renome la colonne valeur avec le nom indiqué en paramètre
+  result = result %>%
+    rename(!!nom := valeur)
+
+  return(result)
+}
+```
+  
+```{r example-calcul_periode}
+
+library(dplyr)
+
+######################################################
+# Exemple avec un data.table
+
+data("ex_data_sim2")
+
+resultat = ex_data_sim2 %>%
+  def_periode(date_col = "DATE",
+              periode = "saison") %>%
+  calcul_periode(var = "T",
+                 fun_name = "mean",
+                 group_vars = c("LAMBX", "LAMBY", "annee", "periode"),
+                 nom = "T_moy")
+
+head(resultat)
+
+######################################################
+# Exemple avec un parquet / tbl_lazy
+
+
+if (requireNamespace("duckdb", quietly = TRUE)) {
+  
+  library(DBI)
+  
+  # Chemin vers le parquet dans le package
+  file <- system.file("ex_data_sim2.parquet", package = "franceclimat")
+  
+  # Connexion DuckDB en mémoire
+  con <- dbConnect(duckdb::duckdb())
+  
+  # Création d'une table lazy directement depuis le parquet
+  tbl_lazy <- tbl(con, sql(sprintf("SELECT * FROM read_parquet('%s')", file)))
+  
+  resultat_tbl_lazy <- tbl_lazy %>%
+    def_periode(date_col = "DATE", periode = "saison") %>%
+    calcul_periode(
+      var = "PRELIQ",
+      fun_name = "sum",
+      group_vars = c("LAMBX", "LAMBY", "annee", "periode"),
+      nom = "PRELIQ_sum"
+    ) %>%
+    collect()
+  
+  dbDisconnect(con, shutdown = TRUE)
+  
+  head(resultat_tbl_lazy)
+  
+}
+
+# ######################################################
+# Exemple avec un fichier Parquet / Arrow
+
+if (requireNamespace("arrow", quietly = TRUE)) {
+
+  library(arrow)
+
+  # Chemin vers le parquet dans le package
+  file <- system.file("ex_data_sim2.parquet", package = "franceclimat")
+
+  # Ouvrir le dataset
+  ds <- arrow::open_dataset(file)
+
+  # Ajouter les périodes (saison) puis collecter le résultat
+  resultat_arrow <- ds %>%
+    def_periode(date_col = "DATE", periode = "saison") %>%
+    calcul_periode(
+      var = "TSUP_H",
+      fun = "mean",
+      group_vars = c("LAMBX", "LAMBY", "annee", "periode"),
+      nom = "TSUP_H_moy"
+    ) %>%
+    collect()
+
+  head(resultat_arrow)
+
+}
+
+```
+  
+```{r tests-calcul_periode}
+library(testthat)
+library(dplyr)
+library(DBI)
+library(duckdb)
+library(arrow)
+
+# -----------------------------
+# Jeu de données de test
+# -----------------------------
+df_test <- tibble::tibble(
+  annee = c(2020, 2020, 2021, 2021),
+  periode = c("Hiver", "Hiver", "Ete", "Ete"),
+  LAMBX = c(1, 1, 2, 2),
+  LAMBY = c(3, 3, 4, 4),
+  PRELIQ = c(10, 20, 30, 40)
+)
+
+# -----------------------------
+# TESTS DATA.FRAME
+# -----------------------------
+
+test_that("calcul_periode works correctly with data.frame (mean)", {
+
+  res <- calcul_periode(
+    data = df_test,
+    var = "PRELIQ",
+    fun = "mean",
+    group_vars = c("annee", "periode"),
+    nom = "PRELIQ_moy"
+  )
+
+  expect_s3_class(res, "data.frame")
+  expect_true("PRELIQ_moy" %in% colnames(res))
+  
+  expect_equal(res %>% filter(annee == 2020, periode == "Hiver") %>%
+                 pull(PRELIQ_moy),
+               15)
+  expect_equal(res %>% filter(annee == 2021, periode == "Ete") %>%
+                 pull(PRELIQ_moy),
+               35)
+})
+
+test_that("calcul_periode works correctly with data.frame (sum)", {
+
+  res <- calcul_periode(
+    data = df_test,
+    var = "PRELIQ",
+    fun = "sum",
+    group_vars = c("annee", "periode"),
+    nom = "PRELIQ_sum"
+  )
+  
+  expect_equal(res %>% filter(annee == 2020, periode == "Hiver") %>%
+                 pull(PRELIQ_sum),
+               30)
+  expect_equal(res %>% filter(annee == 2021, periode == "Ete") %>%
+                 pull(PRELIQ_sum),
+               70)
+})
+
+# -----------------------------
+# TESTS TBL_LAZY (DuckDB)
+# -----------------------------
+
+test_that("calcul_periode works correctly with tbl_lazy", {
+
+  con <- dbConnect(duckdb())
+  on.exit(dbDisconnect(con, shutdown = TRUE))
+
+  tbl_lazy_test <- copy_to(con, df_test, temporary = TRUE)
+
+  res <- calcul_periode(
+    data = tbl_lazy_test,
+    var = "PRELIQ",
+    fun = "sum",
+    group_vars = c("annee", "periode"),
+    nom = "PRELIQ_sum"
+  ) %>%
+    collect()
+
+  expect_s3_class(res, "data.frame")
+  expect_equal(res %>% filter(annee == 2020, periode == "Hiver") %>%
+                 pull(PRELIQ_sum),
+               30)
+  expect_equal(res %>% filter(annee == 2021, periode == "Ete") %>%
+                 pull(PRELIQ_sum),
+               70)
+})
+
+
+# -----------------------------
+# TESTS ARROW
+# -----------------------------
+
+test_that("calcul_periode works correctly with  Arrow Dataset", {
+  
+  # dossier temporaire
+  tmp_dir <- tempfile()
+  dir.create(tmp_dir)
+
+  # écrire un fichier parquet
+  arrow::write_dataset(df_test, path = tmp_dir, format = "parquet")
+
+  # ouvrir dataset
+  ds <- arrow::open_dataset(tmp_dir)
+
+  res <- calcul_periode(
+    data = ds,
+    var = "PRELIQ",
+    fun = "sum",
+    group_vars = c("annee", "periode"),
+    nom = "PRELIQ_sum"
+  ) %>%
+    collect()
+
+  expect_s3_class(res, "data.frame")
+
+  expect_equal(
+    res %>% filter(annee == 2020, periode == "Hiver") %>%
+      pull(PRELIQ_sum),
+    30)
+
+  expect_equal(
+    res %>% filter(annee == 2021, periode == "Ete") %>%
+      pull(PRELIQ_sum),
+    70)
+  
+})
+
+# -----------------------------
+# TESTS ERREURS INPUT
+# -----------------------------
+
+test_that("calcul_periode errors correctly", {
+  
+  expect_error(
+    calcul_periode(
+      data = df_test,
+      var = "PRELIQ",
+    fun = "median",
+    group_vars = c("annee", "periode"),
+    nom = "PRELIQ_moy"),
+    "`fun_name` doit etre 'mean','sum','min' ou 'max'"
+  )
+})
+
+
+```
 
 ```{r development-inflate, eval=FALSE}
 # Run but keep eval=FALSE to avoid infinite loop

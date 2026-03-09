@@ -19,7 +19,7 @@
 #'
 #' L'année associée à l'hiver correspond à l'année de janvier/février.  Ainsi, décembre 1960 est rattaché à l'hiver 1961.
 #'
-#' @param data data.frame ou tbl_lazy (DuckDB, parquet via dbplyr). Table contenant les données.
+#' @param data data.frame, tbl_lazy (DuckDB) ou Dataset (Dataset Arrow). Table contenant les données.
 #' @param date_col Character. Nom de la colonne représentant la date (format AAAAMMJJ).
 #' @param periode Character. Soit `"saison"` pour créer les saisons, soit `"annee"` pour créer simplement l'année.
 #' 
@@ -36,102 +36,95 @@
 #' @examples
 #'
 #'
+#' library(dplyr)
+#'
 #' ######################################################
-#' # Exemple avec un data.table
+#' # Exemple avec data.frame
 #'
 #' data("ex_data_sim2")
 #'
-#' resultat_data_table = def_periode(data = ex_data_sim2,
-#'                        date_col = "DATE",
-#'                        periode = "saison")
+#' resultat_df <- def_periode(
+#'   data = ex_data_sim2,
+#'   date_col = "DATE",
+#'   periode = "saison"
+#' )
 #'
 #' ######################################################
-#' # Exemple avec un parquet / tbl_lazy
+#' # Exemple avec DuckDB / parquet
 #'
-#' library(DBI)
-#' library(duckdb)
-#' library(dplyr)
-#' library(dbplyr)
+#' if (requireNamespace("duckdb", quietly = TRUE)) {
 #'
-#' # Chemin vers le parquet dans le package
-#' file <- system.file("ex_data_sim2.parquet", package = "franceclimat") 
+#'   library(DBI)
+#'   
+#'   file <- system.file("ex_data_sim2.parquet", package = "franceclimat")
 #'
-#' # Connexion DuckDB en mémoire
-#' con <- dbConnect(duckdb::duckdb()) 
+#'   con <- DBI::dbConnect(duckdb::duckdb())
 #'
-#' # Création d'une table lazy directement depuis le parquet
-#' tbl_lazy <- tbl(con, sql(sprintf("SELECT * FROM read_parquet('%s')", file))) 
+#'   tbl_lazy <- dplyr::tbl(
+#'     con,
+#'     dbplyr::sql(sprintf("SELECT * FROM read_parquet('%s')", file))
+#'   )
 #'
-#' resultat_tbl_lazy <- tbl_lazy %>%
-#'   def_periode("DATE", "saison") %>%
-#'   collect()
+#'   resultat_tbl_lazy <- tbl_lazy %>%
+#'     def_periode("DATE", "saison") %>%
+#'     collect()
 #'
-#' dbDisconnect(con, shutdown = TRUE)
+#'   DBI::dbDisconnect(con, shutdown = TRUE)
+#' }
 #'
+#' ######################################################
+#' # Exemple avec Arrow
+#'
+#' if (requireNamespace("arrow", quietly = TRUE)) {
+#'
+#'   library(arrow)
+#'   
+#'   
+#'   file <- system.file("ex_data_sim2.parquet", package = "franceclimat")
+#'
+#'   ds <- arrow::open_dataset(file)
+#'
+#'   resultat_arrow <- ds %>%
+#'     def_periode("DATE", "saison") %>%
+#'     collect()
+#' }
 #'
 def_periode <- function(data, date_col = "DATE", periode = "saison") {
   
-  
   # -----------------------------
-  # Vérifications générales
+  # Vérifications
   # -----------------------------
-  
-  # 1) Vérifier l'argument periode
+
   if (!periode %in% c("saison", "annee")) {
-    stop("`periode` doit \u00EAtre 'saison' ou 'annee'.", call. = FALSE) # \u00EA -> ê
+    stop("`periode` doit etre 'saison' ou 'annee'.", call. = FALSE)
   }
   
-  # 2) Déterminer le type d'objet
-  is_df   <- inherits(data, "data.frame")
-  is_lazy <- inherits(data, "tbl_lazy")
   
-  if (!is_df && !is_lazy) {
-    stop(
-      "`data` doit \u00EAtre un data.frame (ou tibble) ",
-      "ou un objet tbl_lazy (DuckDB/SQL).",
-      call. = FALSE
-    )
+  if (!inherits(data, c("data.frame", "tbl_lazy", "Dataset"))) {
+    stop("`data` doit etre un data.frame, un tbl_lazy ou un Dataset Arrow.",
+         call. = FALSE)
   }
   
-  # 3) Vérifier que la colonne existe
-  cols <- colnames(data)
-  
-  if (!date_col %in% cols) {
-    stop(
-      "Colonne '",
-      date_col,
-      "' non trouv\u00E9e dans `data`.\n", # \u00E9 -> é
-      "Colonnes disponibles : ",
-      paste(cols, collapse = ", "),
-      call. = FALSE
-    )
+  if (!date_col %in% colnames(data)) {
+    stop("Colonne '", date_col, "' non trouvee.", call. = FALSE)
   }
   
-  # -----------------------------
-  # Vérifications avancées
-  # (uniquement si données en mémoire)
-  # -----------------------------
-  
-  if (is_df) {
-    dates_vec <- data[[date_col]]
-    
-    if (!all(grepl("^\\d{8}$", as.character(dates_vec)))) {
-      stop(
-        "Toutes les valeurs de la colonne '",
-        date_col,
-        "' doivent \u00EAtre au format AAAAMMJJ (8 chiffres).",
-        call. = FALSE
-      )
+  # Vérification format UNIQUEMENT si data.frame
+  if (inherits(data, "data.frame")) {
+    if (!is.character(data[[date_col]]) &&
+        !is.numeric(data[[date_col]])) {
+      stop("`date_col` doit etre caractere ou numerique AAAAMMJJ.",
+           call. = FALSE)
     }
   }
-
+  
   # -----------------------------
-  # Transformation compatible SQL
+  # Traitements
   # -----------------------------
-
+  
   data <- data %>%
     dplyr::mutate(
-      .date_chr = as.character(.data[[date_col]]), # . indique colonne temporaire
+      .date_chr = as.character(.data[[date_col]]),
       .year  = as.integer(substr(.date_chr, 1, 4)),
       .month = as.integer(substr(.date_chr, 5, 6))
     )
@@ -141,13 +134,13 @@ def_periode <- function(data, date_col = "DATE", periode = "saison") {
     data <- data %>%
       dplyr::mutate(
         periode = dplyr::case_when(
-          .month %in% c(12,1,2) ~ "Hiver",
-          .month %in% 3:5       ~ "Printemps",
-          .month %in% 6:8       ~ "Ete",
-          .month %in% 9:11      ~ "Automne"
+          .month %in% c(12, 1, 2) ~ "Hiver",
+          .month %in% 3:5         ~ "Printemps",
+          .month %in% 6:8         ~ "Ete",
+          .month %in% 9:11        ~ "Automne"
         ),
         annee = dplyr::case_when(
-          .month == 12 ~ .year + 1,
+          .month == 12 ~ .year + 1L,
           TRUE ~ .year
         )
       )
@@ -166,3 +159,4 @@ def_periode <- function(data, date_col = "DATE", periode = "saison") {
   
   return(result)
 }
+

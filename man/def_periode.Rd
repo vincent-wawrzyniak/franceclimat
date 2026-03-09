@@ -7,7 +7,7 @@
 def_periode(data, date_col = "DATE", periode = "saison")
 }
 \arguments{
-\item{data}{data.frame ou tbl_lazy (DuckDB, parquet via dbplyr). Table contenant les données.}
+\item{data}{data.frame, tbl_lazy (DuckDB) ou Dataset (Dataset Arrow). Table contenant les données.}
 
 \item{date_col}{Character. Nom de la colonne représentant la date (format AAAAMMJJ).}
 
@@ -42,37 +42,57 @@ L'année associée à l'hiver correspond à l'année de janvier/février.  Ainsi
 \examples{
 
 
+library(dplyr)
+
 ######################################################
-# Exemple avec un data.table
+# Exemple avec data.frame
 
 data("ex_data_sim2")
 
-resultat_data_table = def_periode(data = ex_data_sim2,
-                       date_col = "DATE",
-                       periode = "saison")
+resultat_df <- def_periode(
+  data = ex_data_sim2,
+  date_col = "DATE",
+  periode = "saison"
+)
 
 ######################################################
-# Exemple avec un parquet / tbl_lazy
+# Exemple avec DuckDB / parquet
 
-library(DBI)
-library(duckdb)
-library(dplyr)
-library(dbplyr)
+if (requireNamespace("duckdb", quietly = TRUE)) {
 
-# Chemin vers le parquet dans le package
-file <- system.file("ex_data_sim2.parquet", package = "franceclimat") 
+  library(DBI)
+  
+  file <- system.file("ex_data_sim2.parquet", package = "franceclimat")
 
-# Connexion DuckDB en mémoire
-con <- dbConnect(duckdb::duckdb()) 
+  con <- DBI::dbConnect(duckdb::duckdb())
 
-# Création d'une table lazy directement depuis le parquet
-tbl_lazy <- tbl(con, sql(sprintf("SELECT * FROM read_parquet('\%s')", file))) 
+  tbl_lazy <- dplyr::tbl(
+    con,
+    dbplyr::sql(sprintf("SELECT * FROM read_parquet('\%s')", file))
+  )
 
-resultat_tbl_lazy <- tbl_lazy \%>\%
-  def_periode("DATE", "saison") \%>\%
-  collect()
+  resultat_tbl_lazy <- tbl_lazy \%>\%
+    def_periode("DATE", "saison") \%>\%
+    collect()
 
-dbDisconnect(con, shutdown = TRUE)
+  DBI::dbDisconnect(con, shutdown = TRUE)
+}
 
+######################################################
+# Exemple avec Arrow
+
+if (requireNamespace("arrow", quietly = TRUE)) {
+
+  library(arrow)
+  
+  
+  file <- system.file("ex_data_sim2.parquet", package = "franceclimat")
+
+  ds <- arrow::open_dataset(file)
+
+  resultat_arrow <- ds \%>\%
+    def_periode("DATE", "saison") \%>\%
+    collect()
+}
 
 }
