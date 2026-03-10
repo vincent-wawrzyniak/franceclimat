@@ -84,7 +84,7 @@ if (requireNamespace("duckdb", quietly = TRUE)) {
   
 }
 
-# ######################################################
+######################################################
 # Exemple avec un fichier Parquet / Arrow
 
 if (requireNamespace("arrow", quietly = TRUE)) {

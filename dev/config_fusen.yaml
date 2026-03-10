@@ -33,10 +33,12 @@ flat_traitements_sim2.Rmd:
   state: active
   R:
   - R/calcul_periode.R
+  - R/calcul_periode_multi.R
   - R/def_periode.R
   tests:
   - tests/testthat/test-def_periode.R
   - tests/testthat/test-calcul_periode.R
+  - tests/testthat/test-calcul_periode_multi.R
   vignettes: vignettes/traitements-des-donnees-meteo-france-sim2.Rmd
   inflate:
     flat_file: dev/flat_traitements_sim2.Rmd

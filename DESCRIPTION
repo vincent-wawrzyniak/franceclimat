@@ -14,7 +14,8 @@ Imports:
     DBI,
     dplyr,
     duckdb,
-    magrittr
+    magrittr,
+    purrr
 Suggests: 
     arrow,
     dbplyr,
