@@ -1,0 +1,64 @@
+flat_datasets.Rmd:
+  path: dev/flat_datasets.Rmd
+  state: active
+  R: []
+  tests: []
+  vignettes: vignettes/get-started.Rmd
+  inflate:
+    flat_file: dev/flat_datasets.Rmd
+    vignette_name: Get started
+    open_vignette: true
+    check: true
+    document: true
+    overwrite: ask
+    clean: ask
+    codecov: false
+flat_full.Rmd:
+  path: dev/flat_full.Rmd
+  state: active
+  R: R/concatenation_sim2.R
+  tests: tests/testthat/test-concatenation_sim2.R
+  vignettes: vignettes/get-started.Rmd
+  inflate:
+    flat_file: dev/flat_full.Rmd
+    vignette_name: Get started
+    open_vignette: true
+    check: true
+    document: true
+    overwrite: ask
+    clean: ask
+    codecov: false
+flat_traitements_sim2.Rmd:
+  path: dev/flat_traitements_sim2.Rmd
+  state: active
+  R:
+  - R/calcul_periode.R
+  - R/def_periode.R
+  tests:
+  - tests/testthat/test-def_periode.R
+  - tests/testthat/test-calcul_periode.R
+  vignettes: vignettes/traitements-des-donnees-meteo-france-sim2.Rmd
+  inflate:
+    flat_file: dev/flat_traitements_sim2.Rmd
+    vignette_name: Traitements des données Météo France SIM2
+    open_vignette: true
+    check: true
+    document: true
+    overwrite: ask
+    clean: ask
+    codecov: false
+integration_sim2.Rmd:
+  path: dev/integration_sim2.Rmd
+  state: active
+  R: R/concatenation_sim2.R
+  tests: tests/testthat/test-concatenation_sim2.R
+  vignettes: vignettes/integration-des-donnees-meteo-france-sim2.Rmd
+  inflate:
+    flat_file: dev/integration_sim2.Rmd
+    vignette_name: Intégration des données Météo France SIM2
+    open_vignette: true
+    check: true
+    document: true
+    overwrite: ask
+    clean: ask
+    codecov: false
