@@ -11,11 +11,13 @@ Depends:
     R (>= 3.5)
 Imports: 
     assertthat,
+    broom,
     DBI,
     dplyr,
     duckdb,
     magrittr,
-    purrr
+    purrr,
+    tidyr
 Suggests: 
     arrow,
     dbplyr,
