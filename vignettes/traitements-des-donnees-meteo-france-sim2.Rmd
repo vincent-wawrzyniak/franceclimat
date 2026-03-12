@@ -143,7 +143,7 @@ if (requireNamespace("duckdb", quietly = TRUE)) {
   
 }
 
-# ######################################################
+######################################################
 # Exemple avec un fichier Parquet / Arrow
 
 if (requireNamespace("arrow", quietly = TRUE)) {
@@ -175,4 +175,66 @@ if (requireNamespace("arrow", quietly = TRUE)) {
 
   
 
+# calcul_periode_multi
+    
+  
+  
+```{r example-calcul_periode_multi}
+
+######################################################
+# Exemple avec un data.table
+
+data("ex_data_sim2")
+
+data = def_periode(
+  data = ex_data_sim2,
+  date_col = "DATE",
+  periode = "annee"
+)
+
+vars_funs <- list(
+  T = list(fun = "mean", nom = "T_moy"),
+  PRELIQ = list(fun = "sum", nom = "PRELIQ_sum")
+)
+
+result_list <- calcul_periode_multi(data, vars_funs)
+
+head(result_list)
+
+######################################################
+# Exemple avec un fichier Parquet / Arrow
+
+if (requireNamespace("arrow", quietly = TRUE)) {
+  
+  # Chemin vers le parquet dans le package
+  file <- system.file("ex_data_sim2.parquet", package = "franceclimat")
+  
+  # Ouvrir le dataset
+  ds <- arrow::open_dataset(file)
+  
+  vars_funs <- list(
+    TSUP_H = list(fun = "mean", nom = "Tmax_moy"),
+    PRENEI = list(fun = "max", nom = "PRENEI_max")
+  )
+  
+  # Ajouter les périodes
+  ds <- def_periode(ds, date_col = "DATE", periode = "saison")
+  
+  # Appliquer calcul_periode_multi sur le dataset Arrow
+  resultat_arrow <- calcul_periode_multi(
+    data = ds,
+    vars_funs = vars_funs,
+    year_filter = c(1959, 2025),
+    group_vars = c("LAMBX", "LAMBY", "annee", "periode")
+  )
+  
+  head(resultat_arrow)
+
+}
+
+
+```
+
+  
+  
 
