@@ -236,5 +236,33 @@ if (requireNamespace("arrow", quietly = TRUE)) {
 ```
 
   
+
+
+# regression_lineaire
+    
   
+  
+```{r example-regression_lineaire}
+
+data("ex_data_sim2")
+
+data = ex_data_sim2 %>%
+  def_periode(date_col = "DATE",
+              periode = "saison") %>%
+  calcul_periode(var = "T",
+                 fun_name = "mean",
+                 group_vars = c("LAMBX", "LAMBY", "annee", "periode"),
+                 nom = "T_moy")
+
+res_lm <- regression_lineaire(
+  data = data,
+  var = "T_moy",
+  group_vars = c("LAMBX", "LAMBY", "periode")
+)
+
+
+```
+
+  
+    
 
